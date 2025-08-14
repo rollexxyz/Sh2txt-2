@@ -1,0 +1,10 @@
+services:
+  - type: web
+    name: telegram-sh-to-txt-bot
+    env: python
+    plan: free
+    buildCommand: "pip install -r requirements.txt"
+    startCommand: "python bot.py"
+    envVars:
+      - key: BOT_TOKEN
+        sync: false  # Token Render dashboard me manually set hoga

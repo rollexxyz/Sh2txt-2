@@ -4,26 +4,29 @@ from urllib.parse import unquote
 from telegram import Update
 from telegram.ext import ApplicationBuilder, CommandHandler, MessageHandler, ContextTypes, filters
 
-BOT_TOKEN = os.getenv("BOT_TOKEN")  # Render env variable
+# Environment Variables
+BOT_TOKEN = os.getenv("BOT_TOKEN")
+PORT = int(os.getenv("PORT", "8443"))
+HOSTNAME = os.getenv("RENDER_EXTERNAL_HOSTNAME")
 
+# Start command
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text("📂 Send me a .sh file, I will extract video & PDF links into a .txt file.")
+    await update.message.reply_text("📂 Send me a .sh file, I'll extract video & PDF links into a .txt file.")
 
+# File handler
 async def handle_file(update: Update, context: ContextTypes.DEFAULT_TYPE):
     document = update.message.document
+
     if not document.file_name.endswith(".sh"):
         await update.message.reply_text("⚠ Please send a .sh file only.")
         return
 
-    # Temporary file paths
     input_path = f"/tmp/{document.file_name}"
     output_path = input_path.replace(".sh", ".txt")
 
-    # Download file
     file = await document.get_file()
     await file.download_to_drive(input_path)
 
-    # Read and extract
     with open(input_path, 'r', encoding='utf-8') as f:
         content = f.read()
 
@@ -58,15 +61,22 @@ async def handle_file(update: Update, context: ContextTypes.DEFAULT_TYPE):
         for title, link in zip(titles, links):
             f.write(f"{title} : {link}\n")
 
-    # Send back
     await update.message.reply_document(open(output_path, 'rb'))
 
+# Main function
 def main():
     app = ApplicationBuilder().token(BOT_TOKEN).build()
+
     app.add_handler(CommandHandler("start", start))
     app.add_handler(MessageHandler(filters.Document.ALL, handle_file))
-    print("🚀 Bot is running...")
-    app.run_polling()
+
+    # Webhook mode for Render Web Service
+    app.run_webhook(
+        listen="0.0.0.0",
+        port=PORT,
+        url_path=BOT_TOKEN,
+        webhook_url=f"https://{HOSTNAME}/{BOT_TOKEN}"
+    )
 
 if __name__ == "__main__":
     main()
